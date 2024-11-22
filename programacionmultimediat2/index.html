@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"> <!-- Define la codificación de caracteres, en este caso UTF-8 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Hace que la página se adapte a dispositivos móviles -->
+    <title>Cliente WebSocket</title> <!-- Título que aparecerá en la pestaña del navegador -->
+</head>
+<body>
+    <h1>Conexión WebSocket</h1> <!-- Título visible en la página que indica que se está estableciendo una conexión WebSocket -->
+
+    <script>
+        // Conectamos con el servidor WebSocket en la URL especificada
+        const socket = new WebSocket("ws://localhost:3000/chat"); 
+
+        // Se ejecuta cuando la conexión WebSocket se ha abierto correctamente
+        socket.onopen = function(event) {
+            console.log("Conectado al servidor WebSocket!"); // Imprime en la consola un mensaje de éxito
+            socket.send("¡Hola servidor!"); // Envía un mensaje al servidor tan pronto como la conexión se establece
+        };
+
+        // Se ejecuta cuando se recibe un mensaje desde el servidor WebSocket
+        socket.onmessage = function(event) {
+            console.log("Mensaje recibido del servidor: " + event.data); // Muestra el mensaje recibido del servidor en la consola
+        };
+
+        // Se ejecuta si ocurre un error con la conexión WebSocket
+        socket.onerror = function(error) {
+            console.error("Error en WebSocket:", error); // Imprime un mensaje de error en la consola si hay un problema
+        };
+
+        // Se ejecuta cuando la conexión WebSocket se cierra
+        socket.onclose = function(event) {
+            console.log("Conexión cerrada:", event); // Imprime un mensaje en la consola cuando la conexión WebSocket se cierra
+        };
+    </script>
+
+</body>
+</html>
+

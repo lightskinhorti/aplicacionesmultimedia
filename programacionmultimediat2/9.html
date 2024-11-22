@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"> <!-- Define la codificación de caracteres, en este caso UTF-8 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Hace que la página se adapte a dispositivos móviles -->
+    <title>Cliente WebSocket</title> <!-- Título que aparecerá en la pestaña del navegador -->
+</head>
+<body>
+    <h1>Conexión WebSocket</h1> <!-- Título visible en la página que indica que se está estableciendo una conexión WebSocket -->
+
+    <!-- Entrada para el nombre del jugador -->
+    <label for="usuario">Introduce tu nombre:</label>
+    <input id="usuario" placeholder="Nombre del jugador" /> <!-- Campo donde el jugador introduce su nombre -->
+    
+    <!-- Entrada para elegir el color del jugador -->
+    <label for="color">Elige tu color:</label>
+    <input id="color" type="color" /> <!-- Campo donde el jugador elige el color de su avatar -->
+
+    <!-- Botón para conectar -->
+    <button id="btnConectar">Conectar</button> <!-- Botón que inicia la conexión WebSocket cuando se hace clic -->
+    
+    <!-- Elemento Canvas para dibujar el juego -->
+    <canvas></canvas> <!-- Lienzo donde se dibujarán los jugadores y su movimiento -->
+
+    <script>
+        // Referencia al canvas y su contexto 2D
+        let lienzo = document.querySelector("canvas");
+        let contexto = lienzo.getContext("2d");
+        
+        // Objeto para almacenar las posiciones de todos los jugadores
+        let jugadores = {};
+        
+        // Objeto que representa al jugador actual
+        let jugador = {
+            "posx": 512,    // Posición inicial en el eje X
+            "posy": 512,    // Posición inicial en el eje Y
+            "color": "red", // Color inicial del jugador
+            "nombre": ""    // Nombre del jugador (será asignado más tarde)
+        };
+
+        let socket; // Variable que almacenará la conexión WebSocket
+
+        // Función que se ejecuta cuando la página se carga
+        window.onload = function() {
+            lienzo.width = 1024;  // Ancho del lienzo
+            lienzo.height = 1024; // Alto del lienzo
+        };
+
+        // Agregar evento al botón de conectar
+        document.getElementById("btnConectar").addEventListener("click", function() {
+            // Obtener el nombre del jugador desde el input
+            jugador.nombre = document.getElementById("usuario").value || "Desconocido";
+            
+            // Si el nombre no se ha introducido, se muestra una alerta
+            if (!jugador.nombre) {
+                alert("Por favor, ingresa un nombre.");
+                return;
+            }
+
+            // Conectamos con el servidor WebSocket
+            socket = new WebSocket("ws://localhost:3000/chat");
+
+            // Cuando la conexión se abre, se ejecuta el siguiente código
+            socket.onopen = function(event) {
+                console.log("Conectado al servidor WebSocket!"); // Mensaje en consola
+                console.log("Jugador conectado: " + jugador.nombre); // Nombre del jugador en consola
+                // Enviar la información del jugador (nombre, color, posición) al servidor
+                socket.send(JSON.stringify(jugador));
+            };
+
+            // Cuando se recibe un mensaje del servidor
+            socket.onmessage = function(event) {
+                let data = JSON.parse(event.data); // Convierte el mensaje recibido a un objeto JSON
+                if (data.nombre !== jugador.nombre) {
+                    jugadores[data.nombre] = data; // Actualiza la posición de los jugadores
+                }
+                dibujar(); // Dibuja los jugadores actualizados en el canvas
+            };
+
+            // Si ocurre un error en la conexión WebSocket
+            socket.onerror = function(error) {
+                console.error("Error en WebSocket:", error); // Imprime el error en la consola
+            };
+
+            // Cuando la conexión WebSocket se cierra
+            socket.onclose = function(event) {
+                console.log("Conexión cerrada:", event); // Imprime cuando se cierra la conexión
+            };
+        });
+
+        // Función para dibujar a todos los jugadores en el canvas
+        function dibujar() {
+            contexto.clearRect(0, 0, lienzo.width, lienzo.height); // Limpiar el canvas antes de redibujar
+
+            // Dibuja todos los jugadores en el lienzo
+            for (let nombre in jugadores) {
+                let player = jugadores[nombre];
+                contexto.fillStyle = player.color; // Color del jugador
+                contexto.beginPath(); 
+                contexto.arc(player.posx, player.posy, 20, 0, Math.PI * 2); // Dibuja un círculo (jugador)
+                contexto.fill(); // Rellena el círculo
+            }
+
+            // Dibuja el jugador actual (el jugador que está usando la aplicación)
+            contexto.fillStyle = jugador.color; // Color del jugador
+            contexto.beginPath(); 
+            contexto.arc(jugador.posx, jugador.posy, 20, 0, Math.PI * 2); // Dibuja un círculo (jugador)
+            contexto.fill(); // Rellena el círculo
+        }
+
+        // Evento para mover al jugador con las teclas (W, A, S, D)
+        document.addEventListener('keydown', function(event) {
+            // Si no está conectado o el nombre del jugador no está asignado, no hace nada
+            if (!socket || !jugador.nombre) return;
+
+            // Mueve al jugador dependiendo de la tecla presionada
+            switch(event.key) {
+                case 'w':
+                case 'W':
+                    jugador.posy -= 10; // Mueve hacia arriba
+                    break;
+                case 'a':
+                case 'A':
+                    jugador.posx -= 10; // Mueve hacia la izquierda
+                    break;
+                case 's':
+                case 'S':
+                    jugador.posy += 10; // Mueve hacia abajo
+                    break;
+                case 'd':
+                case 'D':
+                    jugador.posx += 10; // Mueve hacia la derecha
+                    break;
+            }
+
+            // Envía las nuevas coordenadas del jugador al servidor WebSocket
+            socket.send(JSON.stringify(jugador));
+
+            // Redibuja todos los jugadores, incluido el jugador actual
+            dibujar();
+        });
+
+        // Cambiar el color del jugador cuando se selecciona un nuevo color
+        document.querySelector("#color").onchange = function() {
+            jugador.color = this.value; // Actualiza el color del jugador con el valor seleccionado
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente WebSocket</title>
+</head>
+<body>
+    <h1>Conexión WebSocket</h1>
+    <input id="usuario" placeholder="Introduce tu nombre" />
+    <button id="conectar">Conectar</button>
+    <input id="color" type="color" />
+    <canvas id="lienzo"></canvas>
+
+    <script>
+        let lienzo = document.querySelector("canvas");
+        let contexto = lienzo.getContext("2d");
+        let jugador = {
+            "posx": 512,
+            "posy": 512,
+            "color": "red",
+            "nombre": ""
+        };
+        
+        let socket;  // Para almacenar el WebSocket
+
+        // Configurar el canvas
+        function configurarCanvas() {
+            lienzo.width = 1024;
+            lienzo.height = 1024;
+            dibujajugador();
+        }
+
+        // Función para conectar al servidor WebSocket
+        function conectarWebSocket() {
+            const nombreUsuario = document.querySelector("#usuario").value.trim();
+            
+            if (nombreUsuario === "") {
+                alert("Por favor, introduce tu nombre");
+                return;  // Si no hay nombre, no conectar
+            }
+
+            jugador.nombre = nombreUsuario;  // Guardar el nombre en el objeto jugador
+            socket = new WebSocket("ws://localhost:3000/chat");
+
+            socket.onopen = function() {
+                console.log("Conectado al servidor WebSocket!");
+                socket.send(JSON.stringify({ tipo: 'nuevoCliente', nombre: jugador.nombre }));
+            };
+
+            socket.onmessage = function(event) {
+                console.log("Mensaje recibido del servidor: " + event.data);
+            };
+
+            socket.onerror = function(error) {
+                console.error("Error en WebSocket:", error);
+            };
+
+            socket.onclose = function(event) {
+                console.log("Conexión cerrada:", event);
+            };
+        }
+
+        // Función para dibujar el jugador en el canvas
+        function dibujajugador() {
+            contexto.clearRect(0, 0, lienzo.width, lienzo.height);  // Limpiar canvas
+            contexto.fillStyle = jugador.color;
+            contexto.beginPath();
+            contexto.arc(jugador.posx, jugador.posy, 20, 0, Math.PI * 2); // Dibujar círculo
+            contexto.fill();
+        }
+
+        // Mover al jugador según las teclas
+        document.addEventListener('keydown', function(event) {
+            switch (event.key) {
+                case 'w':
+                case 'W':
+                    jugador.posy -= 10; // Mover hacia arriba
+                    break;
+                case 'a':
+                case 'A':
+                    jugador.posx -= 10; // Mover hacia la izquierda
+                    break;
+                case 's':
+                case 'S':
+                    jugador.posy += 10; // Mover hacia abajo
+                    break;
+                case 'd':
+                case 'D':
+                    jugador.posx += 10; // Mover hacia la derecha
+                    break;
+            }
+            dibujajugador();  // Volver a dibujar el jugador en su nueva posición
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(jugador));  // Enviar la nueva posición al servidor
+            }
+        });
+
+        // Cambiar color del jugador
+        document.querySelector("#color").onchange = function() {
+            jugador.color = this.value;
+        }
+
+        // Añadir evento de clic al botón "Conectar"
+        document.querySelector("#conectar").addEventListener("click", function() {
+            conectarWebSocket();
+            configurarCanvas();  // Configurar el canvas después de conectar
+        });
+    </script>
+</body>
+</html>
