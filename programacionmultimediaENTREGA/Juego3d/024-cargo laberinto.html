@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego 3D Mejorado</title>
+  <style>
+    /* Estilos para la página */
+    body, html { margin: 0; padding: 0; overflow: hidden; }
+    canvas { display: block; } /* Hace que el lienzo de Three.js ocupe toda la pantalla */
+    
+    /* Estilo para los elementos de texto (puntaje y enemigos eliminados) */
+    #puntaje, #enemigos {
+      position: absolute; top: 10px; left: 10px; color: white; font-size: 20px; z-index: 10;
+    }
+
+    /* Estilo para el punto rojo del crosshair */
+    #crosshair {
+      position: absolute; width: 10px; height: 10px; background-color: red;
+      border-radius: 50%; left: 50%; top: 50%; margin-left: -5px; margin-top: -5px; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <!-- Elementos de la interfaz de usuario para mostrar puntaje y cantidad de enemigos eliminados -->
+  <div id="puntaje">Puntaje: 0</div>
+  <div id="enemigos">Enemigos eliminados: 0</div>
+  <div id="crosshair"></div> <!-- El punto de mira (crosshair) -->
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.152.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.152.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    // Importación de Three.js y el cargador GLTFLoader para cargar modelos 3D
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // Crear la escena principal de Three.js
+    const escena = new THREE.Scene();
+    escena.background = new THREE.Color(0x202020);  // Fondo oscuro para mejorar la visibilidad
+
+    // Crear la cámara y posicionarla a una distancia adecuada
+    const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camara.position.set(0, 2, 5);  // Cámara posicionada ligeramente arriba del origen para tener una mejor vista
+
+    // Crear el renderizador y añadirlo al DOM
+    const renderizador = new THREE.WebGLRenderer();
+    renderizador.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderizador.domElement);  // Añadir el renderizador al cuerpo de la página
+
+    // Luces: Añadir luz ambiental suave y una luz direccional para iluminar la escena
+    const luzAmbiente = new THREE.AmbientLight(0x404040, 1);  // Luz ambiente suave
+    escena.add(luzAmbiente);
+    const luzDireccional = new THREE.DirectionalLight(0xffffff, 1);  // Luz direccional más fuerte
+    luzDireccional.position.set(5, 10, 5);  // Posición de la luz direccional
+    escena.add(luzDireccional);
+
+    // Variables de puntaje y enemigos eliminados
+    let puntaje = 0;
+    let enemigosEliminados = 0;
+    const puntajeDiv = document.getElementById('puntaje');
+    const enemigosDiv = document.getElementById('enemigos');
+
+    // Cargar el modelo 3D del laberinto
+    const loader = new GLTFLoader();
+    loader.load('laberinto.glb', (gltf) => {
+      const laberinto = gltf.scene;
+      laberinto.traverse((child) => {
+        if (child.isMesh) {
+          child.material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });  // Asignar color verde al laberinto
+        }
+      });
+      escena.add(laberinto);
+    }, undefined, (error) => {
+      console.error('Error al cargar el laberinto:', error);  // Manejo de errores si falla la carga del modelo
+    });
+
+    // Cargar el modelo de la pistola (AWP.glb)
+    loader.load('pistola.glb', (gltf) => {
+      const pistola = gltf.scene;
+      pistola.scale.set(0.1, 0.1, 0.1);  // Escalar la pistola para hacerla visible
+      pistola.position.set(0, -0.5, -1.5);  // Posicionar la pistola delante de la cámara
+      camara.add(pistola);  // Añadir la pistola como un hijo de la cámara para que se mueva con ella
+    }, undefined, (error) => {
+      console.error('Error al cargar la pistola:', error);  // Manejo de errores si falla la carga del modelo
+    });
+
+    // Arreglos para almacenar las balas y los enemigos
+    const balas = [];
+    const enemigos = [];
+
+    // Función para disparar una bala
+    function disparar() {
+      const geometriaBala = new THREE.SphereGeometry(0.05, 8, 8);  // Crear la geometría de la bala (esfera)
+      const materialBala = new THREE.MeshBasicMaterial({ color: 0xffff00 });  // Material amarillo para la bala
+      const bala = new THREE.Mesh(geometriaBala, materialBala);  // Crear la malla de la bala
+      bala.position.copy(camara.position);  // Colocar la bala en la posición de la cámara
+      bala.direction = new THREE.Vector3();  // Dirección de la bala
+      camara.getWorldDirection(bala.direction);  // Obtener la dirección de la cámara
+      escena.add(bala);  // Añadir la bala a la escena
+      balas.push(bala);  // Guardar la bala en el arreglo de balas
+    }
+
+    // Función para crear enemigos en la escena
+    function crearEnemigo(x, z) {
+      const geometriaEnemigo = new THREE.BoxGeometry(1, 1, 1);  // Geometría de los enemigos (cubos)
+      const materialEnemigo = new THREE.MeshBasicMaterial({ color: 0xff0000 });  // Material rojo para los enemigos
+      const enemigo = new THREE.Mesh(geometriaEnemigo, materialEnemigo);  // Crear la malla del enemigo
+      enemigo.position.set(x, 2, z);  // Posicionar los enemigos un poco más arriba (y = 2)
+      escena.add(enemigo);  // Añadir el enemigo a la escena
+      enemigos.push(enemigo);  // Guardar el enemigo en el arreglo de enemigos
+    }
+
+    // Crear 5 enemigos de forma aleatoria
+    for (let i = 0; i < 5; i++) {
+      crearEnemigo(Math.random() * 20 - 10, Math.random() * 20 - 10);  // Posición aleatoria en el plano XZ
+    }
+
+    // Función para actualizar la posición de las balas
+    function actualizarBalas() {
+      for (let i = balas.length - 1; i >= 0; i--) {
+        balas[i].position.add(balas[i].direction.clone().multiplyScalar(0.2));  // Mover la bala en su dirección
+        if (balas[i].position.length() > 50) {  // Si la bala se aleja demasiado, eliminarla
+          escena.remove(balas[i]);
+          balas.splice(i, 1);
+        }
+      }
+    }
+
+    // Función para detectar las colisiones entre las balas y los enemigos
+    function detectarColisiones() {
+      for (let i = balas.length - 1; i >= 0; i--) {
+        for (let j = enemigos.length - 1; j >= 0; j--) {
+          if (balas[i].position.distanceTo(enemigos[j].position) < 0.5) {  // Si la bala colide con un enemigo
+            escena.remove(enemigos[j]);  // Eliminar el enemigo de la escena
+            escena.remove(balas[i]);  // Eliminar la bala de la escena
+            enemigos.splice(j, 1);  // Eliminar el enemigo del arreglo
+            balas.splice(i, 1);  // Eliminar la bala del arreglo
+            puntaje += 10;  // Aumentar el puntaje
+            enemigosEliminados++;  // Contabilizar enemigos eliminados
+            puntajeDiv.textContent = `Puntaje: ${puntaje}`;  // Actualizar el puntaje en la interfaz
+            enemigosDiv.textContent = `Enemigos eliminados: ${enemigosEliminados}`;  // Actualizar el contador de enemigos eliminados
+            break;
+          }
+        }
+      }
+    }
+
+    // Controles con las teclas de flecha para mover la cámara
+    let teclas = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+    document.addEventListener('keydown', (e) => {
+      teclas[e.key] = true;  // Marcar la tecla como presionada
+      if (e.key === ' ') disparar();  // Disparar cuando se presiona la barra espaciadora
+    });
+    document.addEventListener('keyup', (e) => {
+      teclas[e.key] = false;  // Marcar la tecla como liberada
+    });
+
+    // Función para animar y actualizar la escena
+    function animar() {
+      // Movimiento de la cámara
+      if (teclas.ArrowUp) camara.translateZ(-0.1);  // Mover hacia adelante
+      if (teclas.ArrowDown) camara.translateZ(0.1);  // Mover hacia atrás
+      if (teclas.ArrowLeft) camara.rotation.y += 0.02;  // Rotar a la izquierda
+      if (teclas.ArrowRight) camara.rotation.y -= 0.02;  // Rotar a la derecha
+
+      actualizarBalas();  // Actualizar las balas
+      detectarColisiones();  // Detectar colisiones
+      renderizador.render(escena, camara);  // Renderizar la escena
+      requestAnimationFrame(animar);  // Llamar a la función de animación en el siguiente cuadro
+    }
+
+    animar();  // Iniciar la animación
+  </script>
+</body>
+</html>
