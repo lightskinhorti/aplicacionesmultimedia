@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Captura de pantalla y detección de cambios</title>
+</head>
+<body>
+    <script>
+        // Función principal que captura la pantalla y detecta cambios
+        async function captureScreen() {
+            try {
+                // Solicitar permiso para capturar la pantalla del usuario
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true // Solo capturamos el video, sin audio
+                });
+
+                // Crear un elemento de video para mostrar la captura
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.autoplay = true;
+
+                // Crear lienzos para trabajar con la imagen capturada
+                let canvas1 = document.createElement("canvas"); // Para dibujar el video
+                let canvas2 = document.createElement("canvas"); // Para mostrar los cambios detectados
+                let canvas3 = document.createElement("canvas"); // Para uso futuro (reservado)
+
+                // Configurar tamaños de los lienzos
+                [canvas1, canvas2, canvas3].forEach(canvas => {
+                    canvas.width = 1920;
+                    canvas.height = 1080;
+                    document.body.appendChild(canvas); // Agregar los lienzos a la página
+                });
+
+                // Obtener los contextos de los lienzos para dibujar
+                let ctx1 = canvas1.getContext("2d"); // Para capturar los fotogramas del video
+                let ctx2 = canvas2.getContext("2d"); // Para analizar cambios entre frames
+                let ctx3 = canvas3.getContext("2d"); // Uso futuro
+
+                // Guardar el estado inicial de la pantalla (primer fotograma)
+                let previousFrame = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
+
+                // Agregar el video a la página (opcional, para ver lo capturado en tiempo real)
+                document.body.appendChild(video);
+
+                // Evento que se ejecuta periódicamente al actualizar el video
+                video.addEventListener('timeupdate', () => {
+                    // Dibujar el video actual en el primer lienzo
+                    ctx1.drawImage(video, 0, 0, canvas1.width, canvas1.height);
+
+                    // Capturar el nuevo fotograma de la pantalla
+                    let currentFrame = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
+                    let diffFrame = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
+
+                    // Comparar cada píxel entre el frame anterior y el actual
+                    for (let i = 0; i < currentFrame.data.length; i += 4) {
+                        if (currentFrame.data[i] === previousFrame.data[i] &&
+                            currentFrame.data[i + 1] === previousFrame.data[i + 1] &&
+                            currentFrame.data[i + 2] === previousFrame.data[i + 2]) {
+                            // Si los píxeles son iguales, pintar de blanco (sin cambios)
+                            diffFrame.data[i] = 255;
+                            diffFrame.data[i + 1] = 255;
+                            diffFrame.data[i + 2] = 255;
+                            diffFrame.data[i + 3] = 255;
+                        } else {
+                            // Si hay cambios, pintar de negro
+                            diffFrame.data[i] = 0;
+                            diffFrame.data[i + 1] = 0;
+                            diffFrame.data[i + 2] = 0;
+                            diffFrame.data[i + 3] = 255;
+                        }
+                    }
+
+                    // Mostrar los cambios en el segundo lienzo
+                    ctx2.putImageData(diffFrame, 0, 0);
+
+                    // Guardar el frame actual para la siguiente comparación
+                    previousFrame = currentFrame;
+                });
+
+            } catch (error) {
+                // Capturar errores y mostrarlos en la consola
+                console.error("Error al capturar la pantalla:", error);
+            }
+        }
+
+        // Ejecutar la función de captura de pantalla al cargar la página
+        captureScreen();
+    </script>
+</body>
+</html>

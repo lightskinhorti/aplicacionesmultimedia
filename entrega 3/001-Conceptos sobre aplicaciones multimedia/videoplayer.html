@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reproductor de Video Personalizado</title>
+    <style>
+        /* Contenedor principal del video */
+        .video-container {
+            width: 600px;
+            height: 320px;
+            border: 1px solid grey;
+            position: relative;
+        }
+
+        /* Estilos del video dentro del contenedor */
+        .video-container video {
+            width: 100%;
+        }
+
+        /* Barra de controles del video */
+        .control-bar {
+            position: absolute;
+            width: 400px;
+            height: 36px;
+            background: rgb(173, 173, 173);
+            border-radius: 30px;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding-left: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Botones dentro de la barra de controles */
+        .control-bar button {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: none;
+            padding: 2px;
+        }
+
+        /* Imágenes dentro de los botones */
+        .control-bar button img {
+            width: 100%;
+        }
+
+        /* Barra de progreso */
+        .progress-bar {
+            position: absolute;
+            width: 500px;
+            height: 10px;
+            background: rgb(255, 255, 255);
+            border-radius: 30px;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            overflow: hidden;
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.6) inset;
+        }
+
+        /* Indicador de progreso dentro de la barra */
+        .progress-bar .progress {
+            width: 0%;
+            background: rgb(148, 118, 230);
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <video src="2025-02-11 20-57-51.mkv"></video>
+
+    <script>
+        window.onload = function() {
+            let videos = document.querySelectorAll("video");
+            
+            videos.forEach(function(video) {
+                let container = document.createElement("div");
+                container.classList.add("video-container");
+                video.replaceWith(container);
+                container.appendChild(video);
+
+                let controlBar = document.createElement("div");
+                controlBar.classList.add("control-bar");
+                container.appendChild(controlBar);
+
+                let progressBar = document.createElement("div");
+                progressBar.classList.add("progress-bar");
+                container.appendChild(progressBar);
+
+                let progress = document.createElement("div");
+                progress.classList.add("progress");
+                progressBar.appendChild(progress);
+
+                // Actualizar la barra de progreso durante la reproducción
+                video.addEventListener('timeupdate', () => {
+                    let percent = (video.currentTime / video.duration) * 100;
+                    progress.style.width = percent + "%";
+                });
+
+                /* Botón de Play/Pausa */
+                let playButton = document.createElement("button");
+                playButton.innerHTML = "<img src='play.svg'>";
+                controlBar.appendChild(playButton);
+                let isPlaying = false;
+                
+                playButton.onclick = function() {
+                    if (isPlaying) {
+                        video.pause();
+                        playButton.innerHTML = "<img src='play.svg'>";
+                    } else {
+                        video.play();
+                        playButton.innerHTML = "<img src='pause.svg'>";
+                    }
+                    isPlaying = !isPlaying;
+                };
+
+                /* Botón de Retroceder */
+                let rewindButton = document.createElement("button");
+                rewindButton.innerHTML = "<img src='retroceder.svg'>";
+                controlBar.appendChild(rewindButton);
+                
+                rewindButton.onclick = function() {
+                    video.currentTime -= 10;
+                };
+
+                /* Botón de Avanzar */
+                let forwardButton = document.createElement("button");
+                forwardButton.innerHTML = "<img src='avanzar.svg'>";
+                controlBar.appendChild(forwardButton);
+                
+                forwardButton.onclick = function() {
+                    video.currentTime += 10;
+                };
+
+                /* Botón de Volumen + */
+                let volumeUpButton = document.createElement("button");
+                volumeUpButton.innerHTML = "<img src='volumenmas.svg'>";
+                controlBar.appendChild(volumeUpButton);
+                
+                volumeUpButton.onclick = function() {
+                    if (video.volume < 1.0) {
+                        video.volume += 0.1;
+                    }
+                };
+
+                /* Botón de Volumen - */
+                let volumeDownButton = document.createElement("button");
+                volumeDownButton.innerHTML = "<img src='volumenmenos.svg'>";
+                controlBar.appendChild(volumeDownButton);
+                
+                volumeDownButton.onclick = function() {
+                    if (video.volume > 0.0) {
+                        video.volume -= 0.1;
+                    }
+                };
+
+                /* Control de volumen deslizante */
+                let volumeControl = document.createElement("input");
+                volumeControl.setAttribute("type", "range");
+                volumeControl.setAttribute("min", "0");
+                volumeControl.setAttribute("max", "100");
+                volumeControl.setAttribute("value", video.volume * 100);
+                container.appendChild(volumeControl);
+                
+                volumeControl.oninput = function() {
+                    video.volume = this.value / 100;
+                };
+
+                /* Click en el video para Play/Pausa */
+                video.onclick = function() {
+                    playButton.click();
+                };
+            });
+        };
+    </script>
+</body>
+</html>
